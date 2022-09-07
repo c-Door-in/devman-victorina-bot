@@ -8,7 +8,8 @@ from vk_api.keyboard import VkKeyboard, VkKeyboardColor
 from vk_api.longpoll import VkLongPoll, VkEventType
 from vk_api.utils import get_random_id
 
-from utils.get_questions import get_questions
+from bot_utils.questions import get_questions
+from bot_utils.redis_db_connection import get_redis_db_connection
 
 import logging
 
@@ -137,13 +138,7 @@ def main():
     vk_api = vk_session.get_api()
     longpoll = VkLongPoll(vk_session)
 
-    db_connection  = Redis(
-        host=env.str('REDIS_HOST'),
-        port=env.str('REDIS_PORT'),
-        username=env.str('REDIS_USERNAME'),
-        password=env.str('REDIS_PASSWORD'),
-        decode_responses=True,
-    )
+    db_connection  = get_redis_db_connection()
     logger.info(f'db_connection_ping: {db_connection.ping()}')
 
     questions = get_questions()

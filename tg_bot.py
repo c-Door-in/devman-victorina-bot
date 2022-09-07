@@ -5,7 +5,8 @@ from random import choice
 from telegram import ReplyKeyboardMarkup, ReplyKeyboardRemove
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, ConversationHandler, RegexHandler
 
-from utils.get_questions import get_questions
+from bot_utils.questions import get_questions
+from bot_utils.redis_db_connection import get_redis_db_connection
 
 import logging
 
@@ -21,15 +22,6 @@ class States(Enum):
 
 
 def start(update, context):
-    db_connection  = Redis(
-        host=context.bot_data.get('redis_host'),
-        port=context.bot_data.get('redis_port'),
-        username=context.bot_data.get('redis_username'),
-        password=context.bot_data.get('redis_password'),
-        decode_responses=True,
-    )
-    logger.info(f'db_connection_ping: {db_connection.ping()}')
-    context.chat_data['db_connection'] = db_connection
     keyboard = [
         ['Новый вопрос'],
         ['Мой счёт'],
@@ -54,7 +46,7 @@ def handle_new_question_request(update, context):
         list(context.bot_data['questions'].items())
     )
     context.chat_data['current_answer'] = answer
-    context.chat_data['db_connection'].set(user_id, question)
+    context.bot_data['db_connection'].set(user_id, question)
     keyboard = [
         ['Новый вопрос', 'Сдаться'],
         ['Мой счёт'],
@@ -153,14 +145,12 @@ def main():
     env.read_env()
     
     updater = Updater(token=env.str('TG_BOT_TOKEN'))
-
+    
     dp = updater.dispatcher
-
+    db_connection = get_redis_db_connection()
+    logger.info(f'db_connection_ping: {db_connection.ping()}')
     dp.bot_data = {
-        'redis_host': env.str('REDIS_HOST'),
-        'redis_port': env.str('REDIS_PORT'),
-        'redis_username': env.str('REDIS_USERNAME'),
-        'redis_password': env.str('REDIS_PASSWORD'),
+        'db_connection': db_connection,
         'questions': get_questions(),
     }
 

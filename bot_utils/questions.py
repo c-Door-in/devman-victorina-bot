@@ -27,7 +27,6 @@ def add_file_questions(exist_questions, file_content):
 
 def get_questions():
     questions = {}
-
     for filepath in list(Path('./quiz-questions').glob('*.txt')):
         with open(str(filepath), 'r', encoding='KOI8-R') as file:
             file_content = file.read()
@@ -36,6 +35,4 @@ def get_questions():
 
 
 if __name__ == '__main__':
-    questions = get_questions()
-    print('Yes')
-
+    get_questions()
