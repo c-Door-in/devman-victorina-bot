@@ -5,7 +5,7 @@ from random import choice
 from telegram import ReplyKeyboardMarkup, ReplyKeyboardRemove
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, ConversationHandler, RegexHandler
 
-from questions.questions import get_questions
+from utils.get_questions import get_questions
 
 import logging
 
