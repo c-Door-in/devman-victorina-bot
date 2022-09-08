@@ -175,7 +175,7 @@ def main():
             updater.start_polling()
             updater.idle()
         except Exception:
-            logger.exception('Ошибка в devman-victorina-bot. Перезапуск через 15 секунд.')
+            logger.exception('Ошибка в devman-victorina-tgbot. Перезапуск через 15 секунд.')
             sleep(15)
 
 

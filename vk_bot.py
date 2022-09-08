@@ -4,6 +4,7 @@ import vk_api as vk
 from enum import Enum, auto
 from environs import Env
 from redis import Redis
+from time import sleep
 from vk_api.keyboard import VkKeyboard, VkKeyboardColor
 from vk_api.longpoll import VkLongPoll, VkEventType
 from vk_api.utils import get_random_id
@@ -134,38 +135,40 @@ def main():
     env = Env()
     env.read_env()
 
-    vk_session = vk.VkApi(token=env.str('VK_BOT_TOKEN'))
-    vk_api = vk_session.get_api()
-    longpoll = VkLongPoll(vk_session)
-
     db_connection  = get_redis_db_connection()
     logger.info(f'db_connection_ping: {db_connection.ping()}')
-
     questions = get_questions()
-    state = None
-    for event in longpoll.listen():
-        if event.type == VkEventType.MESSAGE_NEW and event.to_me:
-            logger.debug(state)
-            if not state:
-                state, keyboard = start(event, vk_api)
-            elif state == States.REQUEST:
-                if event.message == 'Новый вопрос':
-                    state, keyboard, answer = handle_new_question_request(event, vk_api, questions, db_connection)
-                elif event.message == 'Мой счёт':
-                    state, keyboard = show_score(event, vk_api, state, keyboard)
-                else:
-                    state, keyboard = callback_request_default(event, vk_api, state, keyboard)
-            elif state == States.ANSWER:
-                if event.message == 'Новый вопрос':
-                    state, keyboard = handle_new_question_request(event, vk_api, questions, db_connection)
-                elif event.message == 'Мой счёт':
-                    state, keyboard = show_score(event, vk_api, state, keyboard)
-                elif event.message == 'Сдаться':
-                    state, keyboard = show_answer(event, vk_api, answer)
-                else:
-                    state, keyboard = handle_solution_attempt(event, vk_api, keyboard, answer)
-            else:
-                continue
+
+    vk_session = vk.VkApi(token=env.str('VK_BOT_TOKEN'))
+    while True:
+        try:
+            vk_api = vk_session.get_api()
+            longpoll = VkLongPoll(vk_session)
+            state = None
+            for event in longpoll.listen():
+                if event.type == VkEventType.MESSAGE_NEW and event.to_me:
+                    logger.debug(state)
+                    if not state:
+                        state, keyboard = start(event, vk_api)
+                    elif state == States.REQUEST:
+                        if event.message == 'Новый вопрос':
+                            state, keyboard, answer = handle_new_question_request(event, vk_api, questions, db_connection)
+                        elif event.message == 'Мой счёт':
+                            state, keyboard = show_score(event, vk_api, state, keyboard)
+                        else:
+                            state, keyboard = callback_request_default(event, vk_api, state, keyboard)
+                    elif state == States.ANSWER:
+                        if event.message == 'Новый вопрос':
+                            state, keyboard = handle_new_question_request(event, vk_api, questions, db_connection)
+                        elif event.message == 'Мой счёт':
+                            state, keyboard = show_score(event, vk_api, state, keyboard)
+                        elif event.message == 'Сдаться':
+                            state, keyboard = show_answer(event, vk_api, answer)
+                        else:
+                            state, keyboard = handle_solution_attempt(event, vk_api, keyboard, answer)
+        except Exception:
+            logger.exception('Ошибка в devman-victorina-vkbot. Перезапуск через 15 секунд.')
+            sleep(15)
 
 
 if __name__ == '__main__':
