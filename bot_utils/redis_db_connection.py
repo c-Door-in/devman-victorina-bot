@@ -1,3 +1,4 @@
+from email.policy import default
 from environs import Env
 from redis import Redis
 
@@ -8,7 +9,7 @@ def get_redis_db_connection():
     return Redis(
         host=env.str('REDIS_HOST'),
         port=env.str('REDIS_PORT'),
-        username=env.str('REDIS_USERNAME'),
+        username=env.str('REDIS_USERNAME', default='default'),
         password=env.str('REDIS_PASSWORD'),
         decode_responses=True,
     )
