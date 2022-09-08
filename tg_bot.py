@@ -2,6 +2,7 @@ from enum import Enum, auto
 from environs import Env
 from redis import Redis
 from random import choice
+from time import sleep
 from telegram import ReplyKeyboardMarkup, ReplyKeyboardRemove
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, ConversationHandler, RegexHandler
 
@@ -33,11 +34,6 @@ def start(update, context):
     )
 
     return States.REQUEST
-
-
-def help(update, context):
-    """Send a message when the command /help is issued."""
-    update.message.reply_text('Help!')
 
 
 def handle_new_question_request(update, context):
@@ -137,22 +133,16 @@ def cancel(update, context):
 
 def error(update, error):
     """Log Errors caused by Updates."""
-    logger.warning('Update "%s" caused error "%s"', update, error)
+    logger.warning(f'Update "{update}" caused error "{error}"')
 
 
 def main():
     env = Env()
     env.read_env()
     
-    updater = Updater(token=env.str('TG_BOT_TOKEN'))
-    
-    dp = updater.dispatcher
     db_connection = get_redis_db_connection()
     logger.info(f'db_connection_ping: {db_connection.ping()}')
-    dp.bot_data = {
-        'db_connection': db_connection,
-        'questions': get_questions(),
-    }
+    questions = get_questions()
 
     conv_handler = ConversationHandler(
         entry_points=[CommandHandler('start', start)],
@@ -172,12 +162,21 @@ def main():
         fallbacks=[CommandHandler('cancel', cancel)]
     )
 
-    dp.add_handler(conv_handler)
-    dp.add_handler(CommandHandler("help", help))
-
-    dp.add_error_handler(error)
-    updater.start_polling()
-    updater.idle()
+    while True:
+        try:
+            updater = Updater(token=env.str('TG_BOT_TOKEN'))
+            dp = updater.dispatcher
+            dp.add_handler(conv_handler)
+            dp.add_error_handler(error)
+            dp.bot_data = {
+                'db_connection': db_connection,
+                'questions': questions,
+            }
+            updater.start_polling()
+            updater.idle()
+        except Exception:
+            logger.exception('Ошибка в devman-victorina-bot. Перезапуск через 15 секунд.')
+            sleep(15)
 
 
 if __name__ == '__main__':
