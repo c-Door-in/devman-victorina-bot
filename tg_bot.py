@@ -11,9 +11,6 @@ from bot_utils.questions import get_questions
 
 import logging
 
-logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-                    level=logging.INFO)
-
 logger = logging.getLogger(__name__)
 
 
@@ -137,6 +134,8 @@ def error(update, error):
 
 
 def main():
+    logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+                    level=logging.INFO)
     env = Env()
     env.read_env()
     
