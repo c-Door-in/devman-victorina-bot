@@ -2,12 +2,12 @@ from enum import Enum, auto
 from environs import Env
 from redis import Redis
 from random import choice
+from redis import Redis
 from time import sleep
 from telegram import ReplyKeyboardMarkup, ReplyKeyboardRemove
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, ConversationHandler, RegexHandler
 
 from bot_utils.questions import get_questions
-from bot_utils.redis_db_connection import get_redis_db_connection
 
 import logging
 
@@ -140,7 +140,13 @@ def main():
     env = Env()
     env.read_env()
     
-    db_connection = get_redis_db_connection()
+    db_connection = Redis(
+        host=env.str('REDIS_HOST'),
+        port=env.str('REDIS_PORT'),
+        username=env.str('REDIS_USERNAME', default='default'),
+        password=env.str('REDIS_PASSWORD'),
+        decode_responses=True,
+    )
     logger.info(f'db_connection_ping: {db_connection.ping()}')
     questions = get_questions()
 
