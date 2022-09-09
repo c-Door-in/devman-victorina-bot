@@ -1,28 +1,22 @@
 from pathlib import Path
 
 
-def reduce_triple_returns(text):
-    while '\n\n\n' in text:
-        text = '\n\n'.join(text.split('\n\n\n'))
-    return text
-
-
 def add_file_questions(exist_questions, file_content):
-    questions = exist_questions
-    question_blocks = reduce_triple_returns(file_content)
+    while '\n\n\n' in file_content:
+        file_content = file_content.replace('\n\n\n', '\n\n')
     question = None
-    for block in question_blocks.split('\n\n'):
+    for block in file_content.split('\n\n'):
         if 'Вопрос' in block:
             question = ' '.join(block.split('\n')[1:]).strip()
         if question and 'Ответ' in block:
             answer = ' '.join(block.split('\n')[1:]).strip()
             try:
-                questions[question] = answer
+                exist_questions[question] = answer
             except UnboundLocalError as e:
                 print(block)
                 raise(e)
             question = None
-    return questions
+    return exist_questions
             
 
 def get_questions():
