@@ -33,13 +33,12 @@ def start(event, vk_api):
         random_id=get_random_id(),
         keyboard=keyboard.get_keyboard(),
     )
-
     return States.REQUEST, keyboard
 
 
 def handle_new_question_request(event, vk_api, questions, db_connection):
-    question, answer = choice(
-        list(questions.items())
+    question = choice(
+        list(questions.keys())
     )
     db_connection.set(event.user_id, question)
     keyboard = VkKeyboard(one_time=True)
@@ -54,10 +53,11 @@ def handle_new_question_request(event, vk_api, questions, db_connection):
         keyboard=keyboard.get_keyboard(),
     )
 
-    return States.ANSWER, keyboard, answer
+    return States.ANSWER, keyboard
 
 
-def handle_solution_attempt(event, vk_api, keyboard, answer):
+def handle_solution_attempt(event, vk_api, keyboard, questions, db_connection):
+    answer = questions[db_connection.get(event.user_id)]
     short_answer = answer
     for simbol in ('(', '.'):
         if simbol in answer:
@@ -86,7 +86,8 @@ def handle_solution_attempt(event, vk_api, keyboard, answer):
     return States.REQUEST, keyboard
         
 
-def show_answer(event, vk_api, answer):
+def show_answer(event, vk_api, questions, db_connection):
+    answer = questions[db_connection.get(event.user_id)]
     keyboard = VkKeyboard(one_time=True)
     keyboard.add_button('Новый вопрос', color=VkKeyboardColor.SECONDARY)
     keyboard.add_line()
@@ -100,17 +101,17 @@ def show_answer(event, vk_api, answer):
     return States.REQUEST, keyboard
 
 
-def show_score(event, vk_api, state, keyboard):
+def show_score(event, vk_api, keyboard):
     vk_api.messages.send(
         user_id=event.user_id,
         message='Счет пока не ведется',
         random_id=get_random_id(),
         keyboard=keyboard.get_keyboard(),
     )
-    return state, keyboard
+    return keyboard
 
 
-def callback_request_default(event, vk_api, state, keyboard):
+def callback_request_default(event, vk_api, keyboard):
     vk_api.messages.send(
         user_id=event.user_id,
         message=choice(['Может начнем?',
@@ -124,12 +125,12 @@ def callback_request_default(event, vk_api, state, keyboard):
         random_id=get_random_id(),
         keyboard=keyboard.get_keyboard(),
     )
-    return state, keyboard
+    return keyboard
 
 
 def main():
     logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-                    level=logging.INFO)
+                    level=logging.DEBUG)
     logger.info('Started')
     env = Env()
     env.read_env()
@@ -149,28 +150,30 @@ def main():
         try:
             vk_api = vk_session.get_api()
             longpoll = VkLongPoll(vk_session)
-            state = None
+            states = {}
             for event in longpoll.listen():
+                logger.debug(f'Event_type is NEW_MESSAGE?: {event.type == VkEventType.MESSAGE_NEW}, to me?: {event.to_me}')
                 if event.type == VkEventType.MESSAGE_NEW and event.to_me:
-                    logger.debug(state)
-                    if not state:
-                        state, keyboard = start(event, vk_api)
-                    elif state == States.REQUEST:
+                    user_id = event.user_id
+                    if not user_id in states:
+                        logger.debug(f'User state is None')
+                        states[user_id], keyboard = start(event, vk_api)
+                    elif states[user_id] == States.REQUEST:
                         if event.message == 'Новый вопрос':
-                            state, keyboard, answer = handle_new_question_request(event, vk_api, questions, db_connection)
+                            states[user_id], keyboard = handle_new_question_request(event, vk_api, questions, db_connection)
                         elif event.message == 'Мой счёт':
-                            state, keyboard = show_score(event, vk_api, state, keyboard)
+                            keyboard = show_score(event, vk_api, keyboard)
                         else:
-                            state, keyboard = callback_request_default(event, vk_api, state, keyboard)
-                    elif state == States.ANSWER:
+                            keyboard = callback_request_default(event, vk_api, keyboard)
+                    elif states[user_id] == States.ANSWER:
                         if event.message == 'Новый вопрос':
-                            state, keyboard = handle_new_question_request(event, vk_api, questions, db_connection)
+                            states[user_id], keyboard = handle_new_question_request(event, vk_api, questions, db_connection)
                         elif event.message == 'Мой счёт':
-                            state, keyboard = show_score(event, vk_api, state, keyboard)
+                            keyboard = show_score(event, vk_api, keyboard)
                         elif event.message == 'Сдаться':
-                            state, keyboard = show_answer(event, vk_api, answer)
+                            states[user_id], keyboard = show_answer(event, vk_api, questions, db_connection)
                         else:
-                            state, keyboard = handle_solution_attempt(event, vk_api, keyboard, answer)
+                            states[user_id], keyboard = handle_solution_attempt(event, vk_api, keyboard, questions, db_connection)
         except Exception:
             logger.exception('Ошибка в devman-victorina-vkbot. Перезапуск через 15 секунд.')
             sleep(15)
